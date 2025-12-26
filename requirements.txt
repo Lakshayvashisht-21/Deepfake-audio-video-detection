@@ -1,0 +1,14 @@
+streamlit
+opencv-python-headless
+torch
+torchvision
+numpy
+Pillow
+transformers
+timm
+accelerate
+facenet-pytorch
+ffmpeg-python
+librosa
+soundfile
+imageio
