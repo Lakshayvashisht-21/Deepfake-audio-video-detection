@@ -8,13 +8,13 @@ from datetime import datetime
 from PIL import Image
 from facenet_pytorch import MTCNN
 from transformers import (
-    AutoImageProcessor,
-    AutoModelForImageClassification,
     AutoFeatureExtractor,
-    AutoModelForAudioClassification,
+    AutoModelForImageClassification,
+    AutoModelForAudioClassification
 )
 import ffmpeg
 import librosa
+import csv
 
 # ==================================================
 # PAGE CONFIG
@@ -125,7 +125,6 @@ def extract_faces(frames_folder, faces_folder):
         if boxes is None:
             continue
 
-        # Keep only largest faces
         boxes = sorted(
             boxes,
             key=lambda b: (b[2] - b[0]) * (b[3] - b[1]),
@@ -150,14 +149,14 @@ def extract_faces(frames_folder, faces_folder):
 # ==================================================
 @st.cache_resource
 def load_video_model():
-    processor = AutoImageProcessor.from_pretrained(
+    extractor = AutoFeatureExtractor.from_pretrained(
         "prithivMLmods/Deep-Fake-Detector-Model"
     )
     model = AutoModelForImageClassification.from_pretrained(
         "prithivMLmods/Deep-Fake-Detector-Model"
     )
     model.eval()
-    return processor, model
+    return extractor, model
 
 # ==================================================
 # LOAD AUDIO MODEL (CACHED)
@@ -177,15 +176,17 @@ def load_audio_model():
 # VIDEO ANALYSIS
 # ==================================================
 def analyze_video_faces(faces_folder):
-    processor, model = load_video_model()
+    extractor, model = load_video_model()
     fake_scores = []
 
     for face in os.listdir(faces_folder):
         image = Image.open(os.path.join(faces_folder, face)).convert("RGB")
-        inputs = processor(images=image, return_tensors="pt")
+        inputs = extractor(image, return_tensors="pt")
+
         with torch.no_grad():
             outputs = model(**inputs)
             probs = torch.softmax(outputs.logits, dim=1)
+
         fake_scores.append(probs[0][1].item())
 
     if not fake_scores:
@@ -215,7 +216,7 @@ def analyze_audio(audio_path):
         outputs = model(**inputs)
         probs = torch.softmax(outputs.logits, dim=1)
 
-    return probs[0][1].item()  # fake probability
+    return probs[0][1].item()
 
 # ==================================================
 # PIPELINE
@@ -247,14 +248,11 @@ if uploaded_video:
     try:
         extract_audio(video_path, audio_path)
         audio_fake = analyze_audio(audio_path)
-    except:
+    except Exception:
         audio_fake = None
 
     progress.progress(90)
 
-    # ==================================================
-    # FUSION AGENT
-    # ==================================================
     if audio_fake is not None and video_fake is not None:
         final_fake = 0.6 * video_fake + 0.4 * audio_fake
     elif video_fake is not None:
@@ -289,7 +287,6 @@ if uploaded_video:
     )
 
     if st.button("Submit Feedback"):
-        import csv
         file_exists = os.path.isfile(FEEDBACK_FILE)
         with open(FEEDBACK_FILE, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -307,5 +304,7 @@ if uploaded_video:
         st.success("✅ Feedback recorded")
 
     st.caption("© TrustNet – Multimodal Agentic AI Prototype")
+
+
 
 
