@@ -6,9 +6,9 @@ numpy
 Pillow
 transformers
 timm
-accelerate
 facenet-pytorch
 ffmpeg-python
 librosa
 soundfile
 imageio
+
